@@ -3,16 +3,17 @@ angular
 	"ui.bootstrap",
 	'webui.services.utils', 'webui.services.rpc', 'webui.services.rpc.helpers', 'webui.services.alerts',
 	'webui.services.settings', 'webui.services.modals', 'webui.services.configuration',
+	'webui.services.errors',
 ])
 .controller('MainCtrl', [
 	'$scope', '$name', '$enable', '$rpc', '$rpchelpers', '$utils', '$alerts', '$modals',
-	'$fileSettings', '$activeInclude', '$waitingExclude', '$pageSize',
+	'$fileSettings', '$activeInclude', '$waitingExclude', '$pageSize', '$getErrorStatus',
 	// for document title
-	'$window',
+	'$rootScope',
 function(
 	scope, name, enable, rpc, rhelpers, utils, alerts, modals,
-	fsettings, activeInclude, waitingExclude, pageSize,
-	window
+	fsettings, activeInclude, waitingExclude, pageSize, getErrorStatus,
+	rootScope
 ) {
 
 	scope.name = name;	 // default UI name
@@ -152,10 +153,11 @@ function(
 		});
 	});
 
+    rootScope.pageTitle = utils.getTitle();
 	rpc.subscribe('getGlobalStat', [], function(data) {
 		scope.$apply(function() {
 			scope.gstats = data[0];
-			window.document.title = utils.getTitle(scope.gstats);
+            rootScope.pageTitle = utils.getTitle(scope.gstats);
 		});
 	});
 
@@ -297,6 +299,10 @@ function(
 			+ scope.stopped.length;
 	}
 
+	scope.getErrorStatus = function(errorCode) {
+		return getErrorStatus(+errorCode);
+	}
+
 	// actual downloads used by the view
 	scope.getDownloads = function() {
 		var downloads = [];
@@ -351,6 +357,14 @@ function(
 		return downloads;
 	}
 
+	scope.hasDirectURL = function() {
+		return rpc.getDirectURL() != '';
+	}
+
+	scope.getDirectURL = function() {
+		return rpc.getDirectURL();
+	}
+
 	// convert the donwload form aria2 to once used by the view,
 	// minor additions of some fields and checks
 	scope.getCtx = function(d, ctx) {
@@ -365,6 +379,7 @@ function(
 				numPieces: d.numPieces,
 				connections: d.connections,
 				bitfield: d.bitfield,
+				errorCode: d.errorCode,
 				totalLength: d.totalLength,
 				fmtTotalLength: utils.fmtsize(d.totalLength),
 				completedLength: d.completedLength,
@@ -385,6 +400,7 @@ function(
 		else {
 			ctx.dir = d.dir;
 			ctx.status = d.status;
+			ctx.errorCode = d.errorCode;
 			ctx.gid = d.gid;
 			ctx.followedBy = (d.followedBy && d.followedBy.length == 1
 				? d.followedBy[0] : null);
@@ -487,15 +503,15 @@ function(
 	scope.getProgressClass = function(d) {
 		switch (d.status) {
 			case "paused":
-				return "progress-info";
+				return "progress-bar-info";
 			case "error":
-				return "progress-danger";
+				return "progress-bar-danger";
 			case "removed":
-				return "progress-warning";
+				return "progress-bar-warning";
 			case "active":
-				return "progress-active";
+				return "active";
 			case "complete":
-				return "progress-success";
+				return "progress-bar-success";
 			default:
 				return "";
 		}
